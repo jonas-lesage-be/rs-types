@@ -1,0 +1,11 @@
+{
+  "name": "eslint-plugin-mod-boundaries",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": "./index.js",
+  "imports": {
+    "eslint": "npm:eslint@^9.39.5",
+    "eslint-plugin-eslint-plugin": "npm:eslint-plugin-eslint-plugin@^7.5.0",
+    "eslint-plugin-jsdoc": "npm:eslint-plugin-jsdoc@^63.3.0"
+  }
+}
