@@ -5,7 +5,7 @@ import { Result } from "@/core/result/mod.ts";
  * every `Option` is either `Some` and contains a value,
  * or `None`, and does not.
  */
-export type Option<T> = SomeClass<T> | NoneClass;
+export type Option<T> = SomeClass<T> | NoneClass<T>;
 
 interface MutableOption<T> {
   isSome: boolean;
@@ -397,8 +397,8 @@ class SomeClass<T> {
    * console.log(x.xor(z).isNone); // true
    * ```
    */
-  xor(other: Option<T>): Option<T> {
-    return other.isNone ? this : None();
+  xor(_other: Option<T>): Option<T> {
+    return None();
   }
 
   /**
@@ -416,8 +416,7 @@ class SomeClass<T> {
    * ```
    */
   insert(value: T): T {
-    const self = this as unknown as MutableOption<T>;
-    self.value = value;
+    Object.assign(this, { value });
     return this.value;
   }
 
@@ -484,10 +483,9 @@ class SomeClass<T> {
    */
   take(): Option<T> {
     const oldVal = this.value;
-    const self = this as unknown as MutableOption<T>;
-    self.isSome = false;
-    self.isNone = true;
-    delete self.value;
+    Object.assign(this, { isSome: false, isNone: true });
+    delete (this as unknown as MutableOption<T>).value;
+    Object.setPrototypeOf(this, NoneClass.prototype);
     return Some(oldVal);
   }
 
@@ -505,8 +503,7 @@ class SomeClass<T> {
    * ```
    */
   takeIf(predicate: (val: T) => boolean): Option<T> {
-    if (predicate(this.value)) return this.take();
-    return None();
+    return predicate(this.value) ? this.take() : None();
   }
 
   /**
@@ -524,8 +521,7 @@ class SomeClass<T> {
    */
   replace(value: T): Option<T> {
     const oldVal = this.value;
-    const self = this as unknown as MutableOption<T>;
-    self.value = value;
+    Object.assign(this, { value });
     return Some(oldVal);
   }
 
@@ -547,10 +543,7 @@ class SomeClass<T> {
    * ```
    */
   zip<U>(other: Option<U>): Option<[T, U]> {
-    return other.match({
-      Some: (otherVal) => Some([this.value, otherVal]),
-      None: () => None(),
-    });
+    return other.map((otherVal) => [this.value, otherVal]);
   }
 
   /**
@@ -560,10 +553,7 @@ class SomeClass<T> {
    * Otherwise, returns `None`.
    */
   zipWith<U, R>(other: Option<U>, f: (a: T, b: U) => R): Option<R> {
-    return other.match({
-      Some: (otherVal) => Some(f(this.value, otherVal)),
-      None: () => None(),
-    });
+    return other.map((otherVal) => f(this.value, otherVal));
   }
 
   /**
@@ -639,10 +629,7 @@ class SomeClass<T> {
    * ```
    */
   transpose<U, E>(this: SomeClass<Result<U, E>>): Result<Option<U>, E> {
-    return this.value.match({
-      Ok: (val) => Result.Ok(Some(val)),
-      Err: (err) => Result.Err(err),
-    });
+    return this.value.map((val) => Some(val));
   }
 
   /**
@@ -660,8 +647,8 @@ class SomeClass<T> {
    * console.log(y.flatten().isNone); // true
    * ```
    */
-  flatten<U>(this: SomeClass<Option<U>>): Option<U> {
-    return this.value;
+  flatten<U>(this: Option<Option<U>>): Option<U> {
+    return (this as SomeClass<Option<U>>).value;
   }
 
   /**
@@ -673,7 +660,7 @@ class SomeClass<T> {
   }
 }
 
-class NoneClass {
+class NoneClass<T> {
   private readonly value: unknown;
 
   readonly isSome = false as const;
@@ -686,7 +673,7 @@ class NoneClass {
   /**
    * Returns `true` if the option is a `Some` value and the value inside of it matches a predicate.
    */
-  isSomeAnd(_predicate: (val: never) => boolean): boolean {
+  isSomeAnd(_predicate: (val: T) => boolean): boolean {
     return false;
   }
 
@@ -700,14 +687,14 @@ class NoneClass {
    * console.log(x.isNoneOr((x: number) => x > 1)); // true
    * ```
    */
-  isNoneOr<T>(this: Option<T>, _predicate: (val: T) => boolean): boolean {
+  isNoneOr(this: Option<T>, _predicate: (val: T) => boolean): boolean {
     return true;
   }
 
   /**
    * Returns `true` if the option is a `Some` value containing the given value.
    */
-  contains<T>(_x: T): boolean {
+  contains(_x: T): boolean {
     return false;
   }
 
@@ -725,7 +712,7 @@ class NoneClass {
    * x.expect("fruits are healthy"); // panics with "fruits are healthy"
    * ```
    */
-  expect(msg: string): never {
+  expect(msg: string): T {
     throw new Error(msg);
   }
 
@@ -743,7 +730,7 @@ class NoneClass {
    * x.unwrap(); // fails with Error
    * ```
    */
-  unwrap(): never {
+  unwrap(): T {
     throw new Error("Called `Option.unwrap()` on a `None` value");
   }
 
@@ -757,7 +744,7 @@ class NoneClass {
    * console.log(x.unwrapOr("bike")); // "bike"
    * ```
    */
-  unwrapOr<T>(fallback: T): T {
+  unwrapOr(fallback: T): T {
     return fallback;
   }
 
@@ -771,7 +758,7 @@ class NoneClass {
    * console.log(None().unwrapOrElse(() => k * 2)); // 20
    * ```
    */
-  unwrapOrElse<T>(this: Option<T>, fn: () => T): T {
+  unwrapOrElse(this: Option<T>, fn: () => T): T {
     return fn();
   }
 
@@ -788,24 +775,44 @@ class NoneClass {
    * console.log(y.unwrapOrDefault(String)); // ""
    * ```
    */
-  unwrapOrDefault<T>(ctor: (new () => T) | (() => T)): T {
-    return typeof ctor === "function" && "prototype" in ctor
-      ? new (ctor as unknown as new () => T)()
-      : (ctor as unknown as () => T)();
+  unwrapOrDefault(ctor: (new () => T) | (() => T)): T {
+    const ctorRef = ctor as unknown;
+
+    if (ctorRef === Symbol || ctorRef === BigInt) {
+      const fn = ctorRef as () => T;
+      return fn();
+    }
+
+    try {
+      const Newable = ctorRef as new () => unknown;
+      const result = new Newable();
+
+      if (result && typeof result === "object" && "valueOf" in result) {
+        const primitive = result.valueOf();
+        if (["string", "number", "boolean"].includes(typeof primitive)) {
+          return primitive as T;
+        }
+      }
+
+      return result as T;
+    } catch {
+      const fn = ctorRef as () => T;
+      return fn();
+    }
   }
 
   /**
    * Maps an `Option<T>` to `Option<U>` by applying a function
    * to a contained value (if `Some`) or returns `None` (if `None`).
    */
-  map<U, T>(_fn: (val: T) => U): Option<U> {
+  map<U>(_fn: (val: T) => U): Option<U> {
     return this as unknown as Option<U>;
   }
 
   /**
    * Calls the provided closure with a reference to the contained value (if `Some`).
    */
-  inspect<T>(_fn: (val: T) => void): Option<never> {
+  inspect(_fn: (val: T) => void): Option<T> {
     return this;
   }
 
@@ -819,7 +826,7 @@ class NoneClass {
    * x.inspectNone(() => console.log("option is empty")); // Prints: "option is empty"
    * ```
    */
-  inspectNone(fn: () => void): Option<never> {
+  inspectNone(fn: () => void): Option<T> {
     fn();
     return this;
   }
@@ -835,7 +842,7 @@ class NoneClass {
    * console.log(x.mapOr(42, (v: string) => v.length)); // 42
    * ```
    */
-  mapOr<U, T>(fallback: U, _fn: (val: T) => U): U {
+  mapOr<U>(fallback: U, _fn: (val: T) => U): U {
     return fallback;
   }
 
@@ -851,7 +858,7 @@ class NoneClass {
    * console.log(x.mapOrElse(() => k * 2, (v: string) => v.length)); // 42
    * ```
    */
-  mapOrElse<U, T>(fallback: () => U, _fn: (val: T) => U): U {
+  mapOrElse<U>(fallback: () => U, _fn: (val: T) => U): U {
     return fallback();
   }
 
@@ -867,10 +874,8 @@ class NoneClass {
    * console.log(y.mapOrDefault(String, (v: string) => v.toUpperCase())); // ""
    * ```
    */
-  mapOrDefault<U, T>(fallback: (new () => U) | (() => U), _fn: (val: T) => U): U {
-    return typeof fallback === "function" && "prototype" in fallback
-      ? new (fallback as new () => U)()
-      : (fallback as () => U)();
+  mapOrDefault<U>(fallback: (new () => U) | (() => U), fn: (val: T) => U): U {
+    return this.map(fn).unwrapOrDefault(fallback);
   }
 
   /**
@@ -884,7 +889,7 @@ class NoneClass {
    * // x.okOr(0) becomes Err(0)
    * ```
    */
-  okOr<E>(err: E): Result<never, E> {
+  okOr<E>(err: E): Result<T, E> {
     return Result.Err(err);
   }
 
@@ -899,28 +904,28 @@ class NoneClass {
    * // x.okOrElse(() => 0) becomes Err(0)
    * ```
    */
-  okOrElse<E>(err: () => E): Result<never, E> {
+  okOrElse<E>(err: () => E): Result<T, E> {
     return Result.Err(err());
   }
 
   /**
    * Returns an iterator over the possibly contained value.
    */
-  *iter(): Generator<never, void, unknown> {
+  *iter(): Generator<T, void, unknown> {
     // Yields nothing, behaves like an empty array iterator
   }
 
   /**
    * Native JavaScript iterator protocol support.
    */
-  *[Symbol.iterator](): Generator<never, void, unknown> {
+  *[Symbol.iterator](): Generator<T, void, unknown> {
     // Yields nothing
   }
 
   /**
    * Returns `None` if the option is `None`, otherwise returns `optb`.
    */
-  and<U>(_optb: Option<U>): Option<never> {
+  and<U>(_optb: Option<U>): Option<T> {
     return this;
   }
 
@@ -928,7 +933,7 @@ class NoneClass {
    * Returns `None` if the option is `None`, otherwise calls `f`
    * with the wrapped value and returns the result.
    */
-  andThen<U, T>(_fn: (val: T) => Option<U>): Option<U> {
+  andThen<U>(_fn: (val: T) => Option<U>): Option<U> {
     return this as unknown as Option<U>;
   }
 
@@ -936,39 +941,37 @@ class NoneClass {
    * Returns `None` if the option is `None`, otherwise returns `None` if the predicate
    * returns `false`.
    */
-  filter<T>(_predicate: (val: T) => boolean): Option<never> {
+  filter(_predicate: (val: T) => boolean): Option<T> {
     return this;
   }
 
   /**
    * Returns the option if it contains a value, otherwise returns `optb`.
    */
-  or<T>(optb: Option<T>): Option<T> {
+  or(optb: Option<T>): Option<T> {
     return optb;
   }
 
   /**
    * Returns the option if it contains a value, otherwise calls `f` and returns the result.
    */
-  orElse<T>(fn: () => Option<T>): Option<T> {
+  orElse(fn: () => Option<T>): Option<T> {
     return fn();
   }
 
   /**
    * Returns `Some` if exactly one of `self`, `other` is `Some`, otherwise returns `None`.
    */
-  xor<T>(other: Option<T>): Option<T> {
-    return other.isSome ? other : (this as unknown as Option<T>);
+  xor(other: Option<T>): Option<T> {
+    return other;
   }
 
   /**
    * Inserts `value` into the option, then returns a reference to it.
    */
-  insert<T>(val: T): T {
-    const self = this as unknown as MutableOption<T>;
-    self.isSome = true;
-    self.isNone = false;
-    self.value = val;
+  insert(val: T): T {
+    Object.assign(this, { isSome: true, isNone: false, value: val });
+    Object.setPrototypeOf(this, SomeClass.prototype);
     return val;
   }
 
@@ -985,7 +988,7 @@ class NoneClass {
    * console.log(opt.unwrap()); // 2
    * ```
    */
-  getOrInsert<T>(value: T): T {
+  getOrInsert(value: T): T {
     return this.insert(value);
   }
 
@@ -1001,12 +1004,8 @@ class NoneClass {
    * console.log(val); // ""
    * ```
    */
-  getOrInsertDefault<T>(ctor: (new () => T) | (() => T)): T {
-    const value =
-      typeof ctor === "function" && "prototype" in ctor
-        ? new (ctor as new () => T)()
-        : (ctor as () => T)();
-    return this.insert(value);
+  getOrInsertDefault(ctor: (new () => T) | (() => T)): T {
+    return this.insert(this.unwrapOrDefault(ctor));
   }
 
   /**
@@ -1021,28 +1020,21 @@ class NoneClass {
    * console.log(val); // 2
    * ```
    */
-  getOrInsertWith<T>(fn: () => T): T {
+  getOrInsertWith(fn: () => T): T {
     return this.insert(fn());
   }
 
   /**
    * Tries to insert a value computed from `f` into the option if it is `None`.
    */
-  getOrTryInsertWith<T, E>(fn: () => Result<T, E>): Result<T, E> {
-    const res = fn();
-    return res.match({
-      Ok: (val) => {
-        this.insert(val);
-        return Result.Ok(val);
-      },
-      Err: (err) => Result.Err(err),
-    });
+  getOrTryInsertWith<E>(fn: () => Result<T, E>): Result<T, E> {
+    return fn().map((val) => this.insert(val));
   }
 
   /**
    * Takes the value out of the option, leaving a `None` in its place.
    */
-  take<T>(this: Option<T>): Option<T> {
+  take(this: Option<T>): Option<T> {
     return None();
   }
 
@@ -1050,7 +1042,7 @@ class NoneClass {
    * Takes the value out of the option, leaving a `None` in its place,
    * if the contained value matches the predicate.
    */
-  takeIf<T>(this: Option<T>, _predicate: (val: T) => boolean): Option<T> {
+  takeIf(this: Option<T>, _predicate: (val: T) => boolean): Option<T> {
     return None();
   }
 
@@ -1067,75 +1059,73 @@ class NoneClass {
    * console.log(old.isNone); // true
    * ```
    */
-  replace<T>(this: Option<T>, value: T): Option<T> {
-    const self = this as unknown as MutableOption<T>;
-    self.isSome = true;
-    self.isNone = false;
-    self.value = value;
+  replace(this: Option<T>, value: T): Option<T> {
+    Object.assign(this, { isSome: true, isNone: false, value });
+    Object.setPrototypeOf(this, SomeClass.prototype);
     return None();
   }
 
   /**
    * Zips `self` with another `Option`.
    */
-  zip<U>(_other: Option<U>): Option<[never, U]> {
-    return this as unknown as Option<[never, U]>;
+  zip<U>(_other: Option<U>): Option<[T, U]> {
+    return this as unknown as Option<[T, U]>;
   }
 
   /**
    * Zips `self` and another `Option` with function `f`.
    */
-  zipWith<U, R>(_other: Option<U>, _f: (a: never, b: U) => R): Option<R> {
+  zipWith<U, R>(_other: Option<U>, _f: (a: T, b: U) => R): Option<R> {
     return this as unknown as Option<R>;
   }
 
   /**
    * Evaluates the option, returning `None` since it contains no value.
    */
-  reduce<T>(this: Option<T>, _f: (accumulator: T, value: T) => T): Option<T> {
+  reduce(this: Option<T>, _f: (accumulator: T, value: T) => T): Option<T> {
     return None();
   }
 
   /**
    * Unzips an option containing a tuple of two options.
    */
-  unzip<A, B>(this: NoneClass): [Option<A>, Option<B>] {
+  unzip<A, B>(this: NoneClass<T>): [Option<A>, Option<B>] {
     return [None(), None()];
   }
 
   /**
    * Maps an `Option<T>` to `Option<T>` by copying the contained value.
    */
-  copied(): Option<never> {
+  copied(): Option<T> {
     return this;
   }
 
   /**
    * Maps an `Option<T>` to `Option<T>` by cloning the contained value.
    */
-  cloned(): Option<never> {
+  cloned(): Option<T> {
     return None();
   }
 
   /**
    * Transposes an `Option` of a `Result` into a `Result` of an `Option`.
    */
-  transpose<U, E>(this: NoneClass): Result<Option<U>, E> {
+  transpose<U, E>(this: NoneClass<T>): Result<Option<U>, E> {
     return Result.Ok(None());
   }
 
   /**
    * Flattens a nested `Option` structure.
    */
-  flatten<U>(this: NoneClass): Option<U> {
-    return this as unknown as Option<U>;
+  flatten<U>(this: Option<Option<U>>): Option<U> {
+    return None();
   }
 
   /**
    * Applies control flow based on pattern matching
    * against the structural variants of `Option`.
    */
-  match<U>(matchers: { Some: (val: never) => U; None: () => U }): U {
+  match<U>(matchers: { Some: (val: T) => U; None: () => U }): U {
     return matchers.None();
   }
 }
@@ -1150,8 +1140,8 @@ export function Some<T>(value: T): Option<T> {
 /**
  * No value.
  */
-export function None(): Option<never> {
-  return new NoneClass();
+export function None<T>(): Option<T> {
+  return new NoneClass<T>();
 }
 
 /**
@@ -1188,12 +1178,7 @@ export function fromNullable<T>(value: T | null | undefined): Option<T> {
  * ```
  */
 export function all<T>(options: Option<T>[]): Option<T[]> {
-  const values: T[] = [];
-  for (const opt of options) {
-    if (opt.isNone) return None();
-    values.push(opt.unwrap());
-  }
-  return Some(values);
+  return options.every((opt) => opt.isSome) ? Some(options.map((opt) => opt.unwrap())) : None();
 }
 
 /**
@@ -1214,8 +1199,5 @@ export function all<T>(options: Option<T>[]): Option<T[]> {
  * ```
  */
 export function any<T>(options: Option<T>[]): Option<T> {
-  for (const opt of options) {
-    if (opt.isSome) return Some(opt.unwrap());
-  }
-  return None();
+  return options.find((opt) => opt.isSome) ?? None();
 }

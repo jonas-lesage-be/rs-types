@@ -63,6 +63,11 @@ const jsAndTsConfig = [
     },
   },
   sonarjsPlugin.configs.recommended,
+  {
+    rules: {
+      "sonarjs/no-unused-vars": "off",
+    },
+  },
   unicornPlugin.configs.recommended,
   {
     rules: {
@@ -74,6 +79,7 @@ const jsAndTsConfig = [
       ],
       "unicorn/name-replacements": "off",
       "unicorn/no-nested-ternary": "off",
+      "unicorn/no-non-function-verb-prefix": "off",
       "unicorn/no-null": "off",
     },
   },
