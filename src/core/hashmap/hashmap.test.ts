@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { OccupiedEntry } from "@/core/hashmap/mod.ts";
 import { Option } from "@/core/option/mod.ts";
 
-import { HashMap } from "./hashmap.ts";
+import { from, HashMap } from "./hashmap.ts";
 
 describe("HashMap", () => {
   describe("Basic operations", () => {
@@ -11,7 +12,6 @@ describe("HashMap", () => {
       expect(map.size).toBe(0);
       expect(map.isEmpty()).toBe(true);
 
-      // Rust spec: insert returns Option.None() if key didn't exist
       expect(map.insert(1, "a").isNone).toBe(true);
       expect(map.size).toBe(1);
       expect(map.isEmpty()).toBe(false);
@@ -24,7 +24,6 @@ describe("HashMap", () => {
       const map = new HashMap<number, string>();
       map.insert(1, "a");
 
-      // Rust spec: insert returns Option.Some(old_value) if key existed
       const old = map.insert(1, "b");
       expect(old.isSome).toBe(true);
       expect(old.unwrap()).toBe("a");
@@ -45,7 +44,6 @@ describe("HashMap", () => {
       const map = new HashMap<number, string>();
       map.insert(1, "a");
 
-      // Rust spec: remove returns Option.Some(value) or Option.None()
       const removed = map.remove(1);
       expect(removed.isSome).toBe(true);
       expect(removed.unwrap()).toBe("a");
@@ -82,14 +80,12 @@ describe("HashMap", () => {
       map.insert(1, "a");
       map.insert(2, "b");
 
-      // eslint-disable-next-line unicorn/prefer-iterator-to-array
-      const keys = [...map.keys()];
+      const keys = map.keys().toArray();
       expect(keys).toContain(1);
       expect(keys).toContain(2);
       expect(keys).toHaveLength(2);
 
-      // eslint-disable-next-line unicorn/prefer-iterator-to-array
-      const values = [...map.values()];
+      const values = map.values().toArray();
       expect(values).toContain("a");
       expect(values).toContain("b");
       expect(values).toHaveLength(2);
@@ -103,6 +99,35 @@ describe("HashMap", () => {
       expect(map.size).toBe(2);
       expect(map.get(1).unwrap()).toBeNull();
       expect(map.get(2).unwrap()).toBeUndefined();
+    });
+
+    it("should remove elements and return both key and value via removeEntry", () => {
+      const map = new HashMap<number, string>();
+      map.insert(1, "a");
+
+      const removed = map.removeEntry(1);
+      expect(removed.isSome).toBe(true);
+
+      const [key, value] = removed.unwrap();
+      expect(key).toBe(1);
+      expect(value).toBe("a");
+      expect(map.size).toBe(0);
+
+      expect(map.removeEntry(1).isNone).toBe(true);
+    });
+
+    it("should allow in-place modification of values during iteration", () => {
+      const map = new HashMap<number, number>();
+      map.insert(1, 10);
+      map.insert(2, 20);
+
+      for (const key of map.keys()) {
+        const valOpt = map.get(key);
+        if (valOpt.isSome) map.insert(key, valOpt.unwrap() * 2);
+      }
+
+      expect(map.get(1).unwrap()).toBe(20);
+      expect(map.get(2).unwrap()).toBe(40);
     });
   });
 
@@ -210,9 +235,33 @@ describe("HashMap", () => {
       expect(valueExists).toBe(11);
       expect(map.get(1).unwrap()).toBe(11);
     });
+
+    it("should support removing elements destructively directly through an occupied entry", () => {
+      const map = new HashMap<number, string>();
+      map.insert(1, "a");
+
+      const entry = map.entry<OccupiedEntry<number, string>>(1);
+      const removedValue = entry.remove();
+      expect(removedValue).toBe("a");
+      expect(map.size).toBe(0);
+      expect(map.containsKey(1)).toBe(false);
+    });
+
+    it("should expose the target key via entry.key() for both vacant and occupied states", () => {
+      const map = new HashMap<string, number>();
+
+      // Case 1: Vacant state.
+      const vacantEntry = map.entry("ghost");
+      expect(vacantEntry.key()).toBe("ghost");
+
+      // Case 2: Occupied state.
+      map.insert("ghost", 42);
+      const occupiedEntry = map.entry("ghost");
+      expect(occupiedEntry.key()).toBe("ghost");
+    });
   });
 
-  describe("Edge Cases", () => {
+  describe("Edge cases", () => {
     it("should handle empty maps in various operations", () => {
       const map = new HashMap<number, string>();
 
@@ -229,6 +278,38 @@ describe("HashMap", () => {
 
       expect(map.get("key1").unwrap()).toEqual(Option.Some("val1"));
       expect(map.get(2).unwrap()).toEqual(Option.None());
+    });
+
+    it("should evaluate structural map equality correctly", () => {
+      const map1 = new HashMap<number, number>();
+      map1.insert(1, 10);
+      map1.insert(2, 20);
+
+      const map2 = new HashMap<number, number>();
+      map2.insert(1, 10);
+      map2.insert(2, 20);
+
+      const entries1 = [...map1.drain()].toSorted((a, b) => a[0] - b[0]);
+      const entries2 = [...map2.drain()].toSorted((a, b) => a[0] - b[0]);
+      expect(entries1).toEqual(entries2);
+
+      map2.insert(2, 20);
+      map2.insert(1, 10);
+      map2.insert(3, 30);
+
+      const entries2Extended = [...map2.drain()].toSorted((a, b) => a[0] - b[0]);
+      expect(entries1).not.toEqual(entries2Extended);
+    });
+
+    it("should deduplicate entries correctly when instantiated from iterables or arrays", () => {
+      const map = from([
+        [1, 10],
+        [2, 20],
+        [1, 99],
+      ]);
+      expect(map.size).toBe(2);
+      expect(map.get(1).unwrap()).toBe(99);
+      expect(map.get(2).unwrap()).toBe(20);
     });
   });
 });

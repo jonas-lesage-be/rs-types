@@ -109,10 +109,10 @@ describe("Option", () => {
 
     it("should handle orElse logic", () => {
       const some = Some(10);
-      expect(some.orElse(() => Some(20))).toEqual(Some(10));
+      expect(some.orElse(() => Some(20)).unwrap()).toBe(10);
 
       const none = None<number>();
-      expect(none.orElse(() => Some(20))).toEqual(Some(20));
+      expect(none.orElse(() => Some(20)).unwrap()).toBe(20);
     });
 
     it("should short-circuit on None", () => {
@@ -410,7 +410,7 @@ describe("Option", () => {
 
     it("should reduce options over an accumulator", () => {
       const some = Some(10);
-      expect(some.reduce((acc, val) => acc + val)).toEqual(Some(10));
+      expect(some.reduce((acc, val) => acc + val).unwrap()).toBe(10);
     });
 
     it("should transform into array sequences through the generator protocol", () => {

@@ -9,6 +9,28 @@ export class HashMap<K, V> implements Iterable<[K, V]> {
   private readonly internalMap = new Map<K, V>();
 
   /**
+   * Creates a new, empty `HashMap`, or initializes it with the key-value
+   * pairs from the provided iterable collection.
+   *
+   * If the iterable contains duplicate keys, the last value will overwrite
+   * any previous ones during deduplication.
+   *
+   * # Examples
+   *
+   * ```typescript
+   * const map1 = new HashMap<number, string>();
+   *
+   * const data: [number, string][] = [[1, "a"], [1, "b"]];
+   * const map2 = new HashMap<number, string>(data);
+   * console.log(map2.size);            // 1 (deduplicated)
+   * console.log(map2.get(1).unwrap()); // "b"
+   * ```
+   */
+  constructor(entries?: Iterable<[K, V]>) {
+    if (entries) for (const [k, v] of entries) this.insert(k, v);
+  }
+
+  /**
    * Returns the number of elements in the map.
    *
    * # Examples
@@ -183,10 +205,9 @@ export class HashMap<K, V> implements Iterable<[K, V]> {
    * console.log(letters.get("t").unwrap()); // 2
    * ```
    */
-  entry(key: K): Entry<K, V> {
-    return this.internalMap.has(key)
-      ? new OccupiedEntry(this, key, this.internalMap.get(key) as V)
-      : new VacantEntry(this, key);
+  entry<T extends Entry<K, V>>(key: K): T {
+    if (!this.internalMap.has(key)) return new VacantEntry(this, key) as T;
+    return new OccupiedEntry(this, key, this.internalMap.get(key) as V) as T;
   }
 
   /**
@@ -335,4 +356,24 @@ export class HashMap<K, V> implements Iterable<[K, V]> {
   [Symbol.iterator](): Iterator<[K, V]> {
     return this.internalMap.entries();
   }
+}
+
+/**
+ * Creates a new `HashMap` initialized with the key-value pairs from the
+ * provided iterable collection.
+ *
+ * If the iterable contains duplicate keys, the last value will overwrite
+ * any previous ones during deduplication.
+ *
+ * # Examples
+ *
+ * ```typescript
+ * const data: [number, string][] = [[1, "a"], [1, "b"]];
+ * const map = HashMap.from(data);
+ * console.log(map.size);            // 1 (deduplicated)
+ * console.log(map.get(1).unwrap()); // "b"
+ * ```
+ */
+export function from<K, V>(iterable: Iterable<[K, V]>): HashMap<K, V> {
+  return new HashMap(iterable);
 }

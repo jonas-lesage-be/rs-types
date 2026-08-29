@@ -1,7 +1,7 @@
 import * as OptionNamespace from "./option.ts";
 
 /**
- * Re-export the clean interface type for Option
+ * Re-export the clean interface type for Option.
  */
 export type Option<T> = OptionNamespace.Option<T>;
 

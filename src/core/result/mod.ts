@@ -1,7 +1,7 @@
 import * as ResultNamespace from "./result.ts";
 
 /**
- * Re-export the clean interface type for Result
+ * Re-export the clean interface type for Result.
  */
 export type Result<T, E> = ResultNamespace.Result<T, E>;
 
