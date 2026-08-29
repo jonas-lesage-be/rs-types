@@ -9,6 +9,23 @@ export class HashSet<T> implements Iterable<T> {
   private readonly internalSet = new Set<T>();
 
   /**
+   * Creates a new, empty `HashSet`, or initializes it with the elements
+   * from the provided iterable collection.
+   *
+   * # Examples
+   *
+   * ```typescript
+   * const set1 = new HashSet<number>();
+   *
+   * const set2 = new HashSet<number>([1, 2, 2, 3]);
+   * console.log(set2.size); // 3 (duplicates are dropped)
+   * ```
+   */
+  constructor(entries?: Iterable<T>) {
+    if (entries) for (const val of entries) this.insert(val);
+  }
+
+  /**
    * Visits the values representing the intersection,
    * i.e., the values that are both in `this` and `other`.
    *
@@ -172,6 +189,29 @@ export class HashSet<T> implements Iterable<T> {
   }
 
   /**
+   * Clears the set, removing all values that satisfy the predicate
+   * and yields the removed elements as a consuming iterator.
+   *
+   * # Examples
+   *
+   * ```typescript
+   * const set = new HashSet<number>([1, 2, 3, 4]);
+   *
+   * const extracted = [...set.extractIf((v) => v % 2 === 0)];
+   * console.log(extracted); // [2, 4]
+   * console.log(set.size);  // 2
+   * ```
+   */
+  *extractIf(predicate: (value: T) => boolean): Generator<T, void, unknown> {
+    for (const value of this.internalSet.values()) {
+      if (!predicate(value)) continue;
+      // eslint-disable-next-line unicorn/no-loop-iterable-mutation
+      this.internalSet.delete(value);
+      yield value;
+    }
+  }
+
+  /**
    * Retains only the elements specified by the predicate.
    *
    * In other words, removes all elements `e` for which `predicate(e)` returns `false`.
@@ -310,6 +350,30 @@ export class HashSet<T> implements Iterable<T> {
   }
 
   /**
+   * Adds a value to the set, replacing the existing element if it was
+   * already present, and returns the old value wrapped in an `Option`.
+   *
+   * If the set did not contain the value, `None` is returned.
+   *
+   * # Examples
+   *
+   * ```typescript
+   * const set = new HashSet<string>();
+   * console.log(set.replace("a").isNone); // true
+   * console.log(set.size);               // 1
+   *
+   * const old = set.replace("a");
+   * console.log(old.unwrap());           // "a"
+   * ```
+   */
+  replace(value: T): Option<T> {
+    const hasValue = this.internalSet.has(value);
+    if (hasValue) this.internalSet.delete(value);
+    this.internalSet.add(value);
+    return hasValue ? Option.Some(value) : Option.None();
+  }
+
+  /**
    * Adds a value to the set.
    *
    * Returns `true` if the value was not already present.
@@ -369,4 +433,21 @@ export class HashSet<T> implements Iterable<T> {
   [Symbol.iterator](): Iterator<T> {
     return this.internalSet.values();
   }
+}
+
+/**
+ * Creates a new `HashSet` initialized with the elements from the provided iterable collection,
+ * or an empty `HashSet` if no iterable is given.
+ *
+ * # Examples
+ *
+ * ```typescript
+ * const set1 = HashSet.from([]);
+ *
+ * const set2 = HashSet.from([1, 2, 2, 3]);
+ * console.log(set2.size); // 3 (duplicates are dropped)
+ * ```
+ */
+export function from<T>(iterable: Iterable<T>): HashSet<T> {
+  return new HashSet<T>(iterable);
 }

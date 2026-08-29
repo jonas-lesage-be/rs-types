@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { HashSet } from "./hashset.ts";
+import { from, HashSet } from "./hashset.ts";
 
 describe("HashSet", () => {
   describe("Basic operations", () => {
@@ -91,6 +91,48 @@ describe("HashSet", () => {
       expect(set.contains(4)).toBe(true);
       expect(set.contains(1)).toBe(false);
       expect(set.contains(3)).toBe(false);
+    });
+
+    it("should allow direct iteration over elements without draining", () => {
+      const set = new HashSet<number>();
+      set.insert(10);
+      set.insert(20);
+
+      const values = [...set];
+      expect(values).toContain(10);
+      expect(values).toContain(20);
+      expect(set.size).toBe(2);
+    });
+
+    it("should not overwrite the original object reference upon duplicate insertion", () => {
+      const set = new HashSet<{ id: number; meta: string }>();
+      const firstRef = { id: 1, meta: "first" };
+
+      set.insert(firstRef);
+      const wasInserted = set.insert(firstRef);
+      expect(wasInserted).toBe(false);
+
+      const containedRef = [...set][0];
+      expect(containedRef).toBe(firstRef);
+    });
+  });
+
+  describe("Advanced filtering", () => {
+    it("should extract elements based on a predicate and remove them from the set", () => {
+      const set = new HashSet<number>();
+      set.insert(1);
+      set.insert(2);
+      set.insert(3);
+      set.insert(4);
+
+      const extracted = [...set.extractIf((val) => val % 2 === 0)];
+      expect(extracted).toContain(2);
+      expect(extracted).toContain(4);
+      expect(extracted).toHaveLength(2);
+
+      expect(set.size).toBe(2);
+      expect(set.contains(1)).toBe(true);
+      expect(set.contains(3)).toBe(true);
     });
   });
 
@@ -222,6 +264,41 @@ describe("HashSet", () => {
       expect(result.contains("a")).toBe(true);
       expect(result.contains(1)).toBe(true);
       expect(result.contains("b")).toBe(true);
+    });
+
+    it("should evaluate structural set equality correctly", () => {
+      const set1 = new HashSet<number>();
+      set1.insert(1);
+      set1.insert(2);
+
+      const set2 = new HashSet<number>();
+      set2.insert(2);
+      set2.insert(1);
+
+      expect([...set1].toSorted((a, b) => a - b)).toEqual([...set2].toSorted((a, b) => a - b));
+
+      set2.insert(3);
+      expect([...set1].toSorted((a, b) => a - b)).not.toEqual([...set2].toSorted((a, b) => a - b));
+    });
+
+    it("should deduplicate items correctly when instantiated from an iterable array", () => {
+      const set = from([1, 2, 2, 3, 3, 4]);
+      expect(set.size).toBe(4);
+      expect([...set].toSorted((a, b) => a - b)).toEqual([1, 2, 3, 4]);
+    });
+
+    it("should replace elements correctly and return the old value as an Option", () => {
+      const set = new HashSet<string>();
+
+      // Case 1: Replacing a non-existing value should return None.
+      expect(set.replace("a").isNone).toBe(true);
+      expect(set.size).toBe(1);
+
+      // Case 2: Replacing an existing value should return Some(oldValue).
+      const old = set.replace("a");
+      expect(old.isSome).toBe(true);
+      expect(old.unwrap()).toBe("a");
+      expect(set.size).toBe(1);
     });
   });
 });
