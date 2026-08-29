@@ -450,8 +450,8 @@ class OkClass<T, E> {
    * const y: Option<Result<number, string>> = x.transpose();
    * ```
    */
-  transpose<U>(this: OkClass<Option<U>, E>): Option<Result<U, E>> {
-    return this.value.match({
+  transpose<U>(this: Result<Option<U>, E>): Option<Result<U, E>> {
+    return (this as OkClass<Option<U>, E>).value.match({
       Some: (val) => Option.Some(Ok(val)),
       None: () => Option.None(),
     });
@@ -917,8 +917,8 @@ class ErrClass<T, E> {
   /**
    * Transposes a `Result` of an `Option` into an `Option` of a `Result`.
    */
-  transpose<U>(this: ErrClass<Option<U>, E>): Option<Result<U, E>> {
-    return Option.Some(Err(this.error));
+  transpose<U>(this: Result<Option<U>, E>): Option<Result<U, E>> {
+    return Option.Some(Err((this as ErrClass<Option<U>, E>).error));
   }
 
   /**

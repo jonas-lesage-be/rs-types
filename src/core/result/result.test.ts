@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { Err, Ok } from "./result.ts";
+import { Option } from "@/core/mod.ts";
+
+import { Err, Ok, Result } from "./result.ts";
 
 describe("Result", () => {
   describe("Basic logic and type guards", () => {
@@ -113,6 +115,46 @@ describe("Result", () => {
       const err = Err<string, number>("error");
       expect(err.orElse((_x) => Ok(20)).unwrap()).toBe(20);
     });
+
+    it("should evaluate logical 'and' correctly", () => {
+      const ok1 = Ok<number, string>(666);
+      const ok2 = Ok<number, string>(667);
+      const err = Err<string, number>("sadface");
+
+      expect(ok1.and(ok2).unwrap()).toBe(667);
+      expect(ok1.and(Err("bad")).unwrapErr()).toBe("bad");
+      expect(err.and(ok2).unwrapErr()).toBe("sadface");
+    });
+
+    it("should evaluate logical 'or' correctly", () => {
+      const ok = Ok<number, string>(666);
+      const err1 = Err<string, number>("sadface");
+      const err2 = Err<string, number>("bad");
+
+      expect(ok.or(Ok(667)).unwrap()).toBe(666);
+      expect(ok.or(err2).unwrap()).toBe(666);
+      expect(err1.or(Ok(667)).unwrap()).toBe(667);
+      expect(err1.or(err2).unwrapErr()).toBe("bad");
+    });
+
+    it("should short-circuit collections on Err", () => {
+      const actions = [
+        () => Ok<number, string>(1),
+        () => Err<string, number>("fail"),
+        () => {
+          throw new Error("Should not be executed");
+        },
+      ];
+
+      const evaluated: Result<number, string>[] = [];
+      for (const fn of actions) {
+        const res = fn();
+        evaluated.push(res);
+        if (res.isErr) break;
+      }
+
+      expect(evaluated).toHaveLength(2);
+    });
   });
 
   describe("Extraction", () => {
@@ -167,6 +209,13 @@ describe("Result", () => {
       const err = Err<string, string>("error");
       expect(err.unwrapOrDefault(String)).toBe("");
     });
+
+    it("should preserve strict object memory reference identity upon unwrapping", () => {
+      const originalObj = { data: "reference-parity" };
+      const res = Ok(originalObj);
+
+      expect(res.unwrap()).toBe(originalObj);
+    });
   });
 
   describe("Options interop", () => {
@@ -182,6 +231,22 @@ describe("Result", () => {
       const result = err.err();
       expect(result.isSome).toBe(true);
       expect(result.unwrap()).toBe("error");
+    });
+
+    it("should transpose Result of Option to Option of Result", () => {
+      const resOptSome = Ok(Option.Some(5));
+      const optResSome = resOptSome.transpose();
+
+      expect(optResSome.isSome).toBe(true);
+      expect(optResSome.unwrap().unwrap()).toBe(5);
+
+      const resOptNone = Ok(Option.None());
+      expect(resOptNone.transpose().isNone).toBe(true);
+
+      const resErr = Err<string, Option<number>>("error");
+      const optResErr = resErr.transpose();
+      expect(optResErr.isSome).toBe(true);
+      expect(optResErr.unwrap().unwrapErr()).toBe("error");
     });
   });
 
