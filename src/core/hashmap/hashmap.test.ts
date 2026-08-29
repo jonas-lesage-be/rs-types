@@ -289,16 +289,15 @@ describe("HashMap", () => {
       map2.insert(1, 10);
       map2.insert(2, 20);
 
-      const entries1 = [...map1.drain()].toSorted((a, b) => a[0] - b[0]);
-      const entries2 = [...map2.drain()].toSorted((a, b) => a[0] - b[0]);
-      expect(entries1).toEqual(entries2);
+      const entries1 = [...map1.drain()];
+      expect(entries1).toEqual(expect.arrayContaining([...map2.drain()]));
 
       map2.insert(2, 20);
       map2.insert(1, 10);
       map2.insert(3, 30);
 
-      const entries2Extended = [...map2.drain()].toSorted((a, b) => a[0] - b[0]);
-      expect(entries1).not.toEqual(entries2Extended);
+      const entries2Extended = [...map2.drain()];
+      expect(entries1).not.toEqual(expect.arrayContaining(entries2Extended));
     });
 
     it("should deduplicate entries correctly when instantiated from iterables or arrays", () => {

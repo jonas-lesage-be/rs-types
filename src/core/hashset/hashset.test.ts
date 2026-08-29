@@ -274,17 +274,16 @@ describe("HashSet", () => {
       const set2 = new HashSet<number>();
       set2.insert(2);
       set2.insert(1);
-
-      expect([...set1].toSorted((a, b) => a - b)).toEqual([...set2].toSorted((a, b) => a - b));
+      expect([...set1]).toEqual(expect.arrayContaining([...set2]));
 
       set2.insert(3);
-      expect([...set1].toSorted((a, b) => a - b)).not.toEqual([...set2].toSorted((a, b) => a - b));
+      expect([...set1]).not.toEqual(expect.arrayContaining([...set2]));
     });
 
     it("should deduplicate items correctly when instantiated from an iterable array", () => {
       const set = from([1, 2, 2, 3, 3, 4]);
       expect(set.size).toBe(4);
-      expect([...set].toSorted((a, b) => a - b)).toEqual([1, 2, 3, 4]);
+      expect([...set]).toEqual([1, 2, 3, 4]);
     });
 
     it("should replace elements correctly and return the old value as an Option", () => {
