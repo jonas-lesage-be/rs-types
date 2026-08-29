@@ -397,8 +397,8 @@ class SomeClass<T> {
    * console.log(x.xor(z).isNone); // true
    * ```
    */
-  xor(_other: Option<T>): Option<T> {
-    return None();
+  xor(other: Option<T>): Option<T> {
+    return other.isSome ? None() : this;
   }
 
   /**
@@ -587,8 +587,8 @@ class SomeClass<T> {
    * console.log(b.unwrap()); // "hi"
    * ```
    */
-  unzip<A, B>(this: SomeClass<[A, B]>): [Option<A>, Option<B>] {
-    const [a, b] = this.value;
+  unzip<A, B>(this: Option<[A, B]>): [Option<A>, Option<B>] {
+    const [a, b] = (this as SomeClass<[A, B]>).value;
     return [Some(a), Some(b)];
   }
 
@@ -628,8 +628,8 @@ class SomeClass<T> {
    * const y: Result<Option<number>, string> = x.transpose();
    * ```
    */
-  transpose<U, E>(this: SomeClass<Result<U, E>>): Result<Option<U>, E> {
-    return this.value.map((val) => Some(val));
+  transpose<U, E>(this: Option<Result<U, E>>): Result<Option<U>, E> {
+    return (this as SomeClass<Result<U, E>>).value.map((val) => Some(val));
   }
 
   /**
@@ -1089,7 +1089,7 @@ class NoneClass<T> {
   /**
    * Unzips an option containing a tuple of two options.
    */
-  unzip<A, B>(this: NoneClass<T>): [Option<A>, Option<B>] {
+  unzip<A, B>(this: Option<[A, B]>): [Option<A>, Option<B>] {
     return [None(), None()];
   }
 
@@ -1110,7 +1110,7 @@ class NoneClass<T> {
   /**
    * Transposes an `Option` of a `Result` into a `Result` of an `Option`.
    */
-  transpose<U, E>(this: NoneClass<T>): Result<Option<U>, E> {
+  transpose<U, E>(this: Option<Result<U, E>>): Result<Option<U>, E> {
     return Result.Ok(None());
   }
 

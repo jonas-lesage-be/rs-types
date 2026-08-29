@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { None, Some } from "./option.ts";
+import { Result } from "@/core/result/mod.ts";
+
+import { all, any, from, fromNullable, None, Option, Some } from "./option.ts";
 
 describe("Option", () => {
   describe("Basic logic and type guards", () => {
@@ -112,6 +114,80 @@ describe("Option", () => {
       const none = None<number>();
       expect(none.orElse(() => Some(20))).toEqual(Some(20));
     });
+
+    it("should short-circuit on None", () => {
+      let count = 0;
+      const actions = [
+        () => {
+          count++;
+          return Some(1);
+        },
+        () => {
+          count++;
+          return None<number>();
+        },
+        () => {
+          count++;
+          throw new Error("This should not be executed");
+        },
+      ];
+
+      const evaluated: Option<number>[] = [];
+      for (const fn of actions) {
+        const res = fn();
+        evaluated.push(res);
+        if (res.isNone) break;
+      }
+
+      expect(all(evaluated).isNone).toBe(true);
+      expect(count).toBe(2);
+    });
+  });
+
+  describe("Logical boolean combinators", () => {
+    it("should evaluate logical 'and' correctly", () => {
+      const some1 = Some(1);
+      const some2 = Some(2);
+      const none = None<number>();
+
+      expect(some1.and(some2).unwrap()).toBe(2);
+      expect(some1.and(none).isNone).toBe(true);
+      expect(none.and(some2).isNone).toBe(true);
+    });
+
+    it("should evaluate logical 'or' correctly", () => {
+      const some1 = Some(1);
+      const some2 = Some(2);
+      const none = None<number>();
+
+      expect(some1.or(some2).unwrap()).toBe(1);
+      expect(none.or(some2).unwrap()).toBe(2);
+      expect(none.or(none).isNone).toBe(true);
+    });
+
+    it("should evaluate logical 'xor' correctly", () => {
+      const some1 = Some(1);
+      const some2 = Some(2);
+      const none = None<number>();
+
+      // some1 XOR none -> Some(1)
+      const res1 = some1.xor(none);
+      expect(res1.isSome).toBe(true);
+      expect(res1.unwrap()).toBe(1);
+
+      // none XOR some1 -> Some(1)
+      const res2 = none.xor(some1);
+      expect(res2.isSome).toBe(true);
+      expect(res2.unwrap()).toBe(1);
+
+      // some1 XOR some2 -> None
+      const res3 = some1.xor(some2);
+      expect(res3.isNone).toBe(true);
+
+      // none XOR none -> None
+      const res4 = none.xor(none);
+      expect(res4.isNone).toBe(true);
+    });
   });
 
   describe("Unwrapping and extraction", () => {
@@ -149,12 +225,32 @@ describe("Option", () => {
       expect(none.unwrapOrElse(() => 20)).toBe(20);
     });
 
-    it("should work with unwrapOrDefault", () => {
-      const some = Some("data");
-      expect(some.unwrapOrDefault(String)).toBe("data");
+    it("should work with unwrapOrDefault with primitives and classes", () => {
+      expect(None<string>().unwrapOrDefault(String)).toBe("");
+      expect(None<number>().unwrapOrDefault(Number)).toBe(0);
+      expect(None<boolean>().unwrapOrDefault(Boolean)).toBe(false);
+
+      class Custom {
+        val = "instantiated";
+      }
+      expect(None<Custom>().unwrapOrDefault(Custom).val).toBe("instantiated");
+      expect(None<number>().unwrapOrDefault(() => 42)).toBe(42);
+    });
+
+    it("should evaluate mapOrDefault correctly", () => {
+      const some = Some("hello");
+      expect(some.mapOrDefault(Number, (val) => val.length)).toBe(5);
 
       const none = None<string>();
-      expect(none.unwrapOrDefault(String)).toBe("");
+      expect(none.mapOrDefault(Number, (val) => val.length)).toBe(0);
+    });
+
+    it("should maintain strict object memory reference identity upon unwrapping", () => {
+      const originalObj = { data: "test-reference-identity" };
+      const opt = Some(originalObj);
+      const unwrappedObj = opt.unwrap();
+
+      expect(unwrappedObj).toBe(originalObj);
     });
   });
 
@@ -202,21 +298,32 @@ describe("Option", () => {
     it("should handle getOrInsert behaviors", () => {
       const opt = None<number>();
       expect(opt.getOrInsert(5)).toBe(5);
-      expect(opt.getOrInsert(10)).toBe(5); // Should remain 5
+      expect(opt.getOrInsert(10)).toBe(5);
     });
 
-    it("should lazy insert via getOrInsertWith", () => {
-      const opt = None<string>();
-      expect(opt.getOrInsertWith(() => "inserted")).toBe("inserted");
+    it("should handle getOrInsertDefault and getOrInsertWith", () => {
+      const opt1 = None<string>();
+      expect(opt1.getOrInsertDefault(String)).toBe("");
+
+      const opt2 = None<number>();
+      expect(opt2.getOrInsertWith(() => 99)).toBe(99);
+    });
+
+    it("should handle getOrTryInsertWith via Result", () => {
+      const opt = None<number>();
+      const success = opt.getOrTryInsertWith(() => Result.Ok(50));
+      expect(success.isOk).toBe(true);
+      expect(opt.unwrap()).toBe(50);
     });
   });
 
   describe("Destructive extraction", () => {
-    it("should take value leaving None behind", () => {
+    it("should take value leaving None behind with correct prototype swap", () => {
       const x = Some(10);
       const taken = x.take();
       expect(taken.unwrap()).toBe(10);
       expect(x.isNone).toBe(true);
+      expect(() => x.unwrap()).toThrow("Called `Option.unwrap()` on a `None` value");
     });
 
     it("should do nothing when taking from None", () => {
@@ -238,6 +345,11 @@ describe("Option", () => {
       const old = x.replace(5);
       expect(x.unwrap()).toBe(5);
       expect(old.unwrap()).toBe(2);
+
+      const y = None<number>();
+      const oldNone = y.replace(3);
+      expect(y.unwrap()).toBe(3);
+      expect(oldNone.isNone).toBe(true);
     });
   });
 
@@ -265,10 +377,87 @@ describe("Option", () => {
       });
       expect(resNone).toBe(100);
     });
+
+    it("should zip and zipWith two options into tuples or generic evaluations", () => {
+      const x = Some(10);
+      const y = Some("foo");
+      expect(x.zip(y)).toEqual(Some([10, "foo"]));
+      expect(x.zip(None())).toEqual(None());
+
+      const zippedWith = x.zipWith(y, (a, b) => `${a}-${b}`);
+      expect(zippedWith).toEqual(Some("10-foo"));
+    });
+
+    it("should unzip options containing pairs", () => {
+      const pair = Some([10, "foo"] as [number, string]);
+      const [left, right] = pair.unzip();
+      expect(left.unwrap()).toBe(10);
+      expect(right.unwrap()).toBe("foo");
+
+      const nonePair = None<[number, string]>();
+      const [nLeft, nRight] = nonePair.unzip();
+      expect(nLeft.isNone).toBe(true);
+      expect(nRight.isNone).toBe(true);
+    });
+
+    it("should transpose Option of Result to Result of Option", () => {
+      const someOk = Some(Result.Ok(42));
+      expect(someOk.transpose().unwrap().unwrap()).toBe(42);
+
+      const none = None<Result<number, string>>();
+      expect(none.transpose().unwrap().isNone).toBe(true);
+    });
+
+    it("should reduce options over an accumulator", () => {
+      const some = Some(10);
+      expect(some.reduce((acc, val) => acc + val)).toEqual(Some(10));
+    });
+
+    it("should transform into array sequences through the generator protocol", () => {
+      const someValues = [...Some(44)];
+      expect(someValues).toEqual([44]);
+
+      const noneValues = [...None<number>()];
+      expect(noneValues).toEqual([]);
+    });
   });
 
-  describe("Edge cases", () => {
-    it("should handle null/undefined values wrapped in Some", () => {
+  describe("Immutability, copying, and interoperability helpers", () => {
+    it("should separate copied vs cloned behaviors", () => {
+      const obj = { nested: { value: 1 } };
+      const opt = Some(obj);
+
+      const copiedOpt = opt.copied();
+      expect(copiedOpt.unwrap()).toBe(obj);
+
+      const clonedOpt = opt.cloned();
+      expect(clonedOpt.unwrap()).not.toBe(obj);
+      expect(clonedOpt.unwrap()).toEqual(obj);
+    });
+
+    it("should instantiate correctly from nullable targets", () => {
+      expect(from(undefined).isNone).toBe(true);
+      expect(from(null).isNone).toBe(true);
+      expect(from(0).isSome).toBe(true);
+      expect(fromNullable(null).isNone).toBe(true);
+    });
+
+    it("should safely convert to and from Result structures", () => {
+      const some = Some(10);
+      expect(some.okOr("error").isOk).toBe(true);
+      const none = None();
+      expect(none.okOrElse(() => "lazy-error").isErr).toBe(true);
+    });
+
+    it("should evaluate all and any helpers over collections", () => {
+      const optionsArray = [Some(1), Some(2), Some(3)];
+      expect(all(optionsArray)).toEqual(Some([1, 2, 3]));
+      expect(all([...optionsArray, None()])).toEqual(None());
+      expect(any([None(), Some(2), None()])).toEqual(Some(2));
+      expect(any([None(), None()])).toEqual(None());
+    });
+
+    it("should handle null/undefined values wrapped directly in Some", () => {
       const someNull = Some(null);
       expect(someNull.isSome).toBe(true);
       expect(someNull.unwrap()).toBeNull();
