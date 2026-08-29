@@ -53,10 +53,10 @@ describe("Option", () => {
 
     it("should evaluate mapOr correctly", () => {
       const some = Some(10);
-      expect(some.mapOr(0, (val) => val * 2)).toBe(20);
+      expect(some.mapOr(42, (val) => val * 2)).toBe(20);
 
       const none = None<number>();
-      expect(none.mapOr(0, (val) => val * 2)).toBe(0);
+      expect(none.mapOr(42, (val) => val * 2)).toBe(42);
     });
 
     it("should evaluate mapOrElse correctly (lazy execution)", () => {

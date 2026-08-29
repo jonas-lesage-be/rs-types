@@ -79,7 +79,7 @@ class OkClass<T, E> {
   /**
    * Converts from `Result<T, E>` to `Option<E>`.
    */
-  err(): Option<never> {
+  err(): Option<E> {
     return Option.None();
   }
 
@@ -281,7 +281,7 @@ class OkClass<T, E> {
    * x.expectErr("Testing expectErr"); // panics with "Testing expectErr: 2"
    * ```
    */
-  expectErr(msg: string): never {
+  expectErr(msg: string): E {
     throw new Error(`${msg}: ${String(this.value)}`);
   }
 
@@ -300,7 +300,7 @@ class OkClass<T, E> {
    * x.unwrapErr(); // panics with "Called `Result.unwrapErr()` on an `Ok` value: 2"
    * ```
    */
-  unwrapErr(): never {
+  unwrapErr(): E {
     throw new Error(`Called \`Result.unwrapErr()\` on an \`Ok\` value: ${String(this.value)}`);
   }
 
@@ -470,8 +470,8 @@ class OkClass<T, E> {
    * console.log(x.flatten().unwrap()); // 6
    * ```
    */
-  flatten<U, F>(this: OkClass<Result<U, F>, F>): Result<U, F> {
-    return this.value;
+  flatten<U, F>(this: Result<Result<U, F>, F>): Result<U, F> {
+    return (this as OkClass<Result<U, F>, F>).value;
   }
 
   /**
@@ -605,7 +605,7 @@ class ErrClass<T, E> {
   /**
    * Converts from `Result<T, E>` to `Option<T>`.
    */
-  ok(): Option<never> {
+  ok(): Option<T> {
     return Option.None();
   }
 
@@ -677,10 +677,8 @@ class ErrClass<T, E> {
    * console.log(y.mapOrDefault(String, (v: string) => v.toUpperCase())); // ""
    * ```
    */
-  mapOrDefault<U>(fallback: (new () => U) | (() => U), _fn: (val: T) => U): U {
-    return typeof fallback === "function" && "prototype" in fallback
-      ? new (fallback as new () => U)()
-      : (fallback as () => U)();
+  mapOrDefault<U>(fallback: (new () => U) | (() => U), fn: (val: T) => U): U {
+    return this.map(fn).unwrapOrDefault(fallback);
   }
 
   /**
@@ -718,14 +716,14 @@ class ErrClass<T, E> {
   /**
    * Returns an iterator over the possibly contained value.
    */
-  *iter(): Generator<never, void, unknown> {
+  *iter(): Generator<T, void, unknown> {
     // Yields nothing for Err variant
   }
 
   /**
    * Native JavaScript iterator protocol support.
    */
-  *[Symbol.iterator](): Generator<never, void, unknown> {
+  *[Symbol.iterator](): Generator<T, void, unknown> {
     // Yields nothing
   }
 
@@ -744,7 +742,7 @@ class ErrClass<T, E> {
    * x.expect("Testing expect"); // panics with "Testing expect: emergency failure"
    * ```
    */
-  expect(msg: string): never {
+  expect(msg: string): T {
     throw new Error(`${msg}: ${String(this.error)}`);
   }
 
@@ -763,7 +761,7 @@ class ErrClass<T, E> {
    * x.unwrap(); // panics with "emergency failure"
    * ```
    */
-  unwrap(): never {
+  unwrap(): T {
     throw this.error;
   }
 
@@ -781,9 +779,29 @@ class ErrClass<T, E> {
    * ```
    */
   unwrapOrDefault(ctor: (new () => T) | (() => T)): T {
-    return typeof ctor === "function" && "prototype" in ctor
-      ? new (ctor as unknown as new () => T)()
-      : (ctor as unknown as () => T)();
+    const ctorRef = ctor as unknown;
+
+    if (ctorRef === Symbol || ctorRef === BigInt) {
+      const fn = ctorRef as () => T;
+      return fn();
+    }
+
+    try {
+      const Newable = ctorRef as new () => unknown;
+      const result = new Newable();
+
+      if (result && typeof result === "object" && "valueOf" in result) {
+        const primitive = result.valueOf();
+        if (["string", "number", "boolean"].includes(typeof primitive)) {
+          return primitive as T;
+        }
+      }
+
+      return result as T;
+    } catch {
+      const fn = ctorRef as () => T;
+      return fn();
+    }
   }
 
   /**
@@ -886,13 +904,13 @@ class ErrClass<T, E> {
    * Maps a `Result<&T, E>` to a `Result<T, E>` by copying the contents of the `Ok` part.
    */
   copied(): Result<T, E> {
-    return this as unknown as Result<T, E>;
+    return Err(this.error);
   }
 
   /**
    * Maps an `Option<T>` to `Option<T>` by deep-cloning the contained value.
    */
-  cloned(): Option<never> {
+  cloned(): Option<T> {
     return Option.None();
   }
 
@@ -906,8 +924,8 @@ class ErrClass<T, E> {
   /**
    * Flattens a nested `Result` structure.
    */
-  flatten<U, F>(this: ErrClass<unknown, F>): Result<U, F> {
-    return this as unknown as Result<U, F>;
+  flatten<U, F>(this: Result<Result<U, F>, F>): Result<U, F> {
+    return Err((this as ErrClass<Result<U, F>, F>).error);
   }
 
   /**
@@ -985,14 +1003,14 @@ class ErrClass<T, E> {
 /**
  * Contains the success value.
  */
-export function Ok<T, E = never>(value: T): Result<T, E> {
+export function Ok<T, E>(value: T): Result<T, E> {
   return new OkClass(value);
 }
 
 /**
  * Contains the error value.
  */
-export function Err<E, T = never>(error: E): Result<T, E> {
+export function Err<E, T>(error: E): Result<T, E> {
   return new ErrClass(error);
 }
 
@@ -1102,9 +1120,7 @@ export async function fromPromise<T, E = Error>(
 export function all<T, E>(results: Result<T, E>[]): Result<T[], E> {
   const values: T[] = [];
   for (const res of results) {
-    if (res.isErr) {
-      return Err(res.unwrapErr());
-    }
+    if (res.isErr) return Err(res.unwrapErr());
     values.push(res.unwrap());
   }
   return Ok(values);

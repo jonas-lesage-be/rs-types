@@ -1097,7 +1097,7 @@ class NoneClass<T> {
    * Maps an `Option<T>` to `Option<T>` by copying the contained value.
    */
   copied(): Option<T> {
-    return this;
+    return None();
   }
 
   /**
