@@ -1,5 +1,7 @@
-import { Entry, OccupiedEntry, VacantEntry } from "@/core/hashmap/entry.ts";
-import { Option, Result } from "@/core/mod.ts";
+import { Option } from "@/core/option/mod.ts";
+import { Result } from "@/core/result/mod.ts";
+
+import { Entry, OccupiedEntry, VacantEntry } from "./entry.ts";
 
 /**
  * A Hash Map implementation wrapping the native JavaScript Map,

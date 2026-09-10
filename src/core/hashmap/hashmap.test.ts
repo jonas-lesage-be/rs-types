@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { OccupiedEntry } from "@/core/hashmap/mod.ts";
 import { Option } from "@/core/option/mod.ts";
 
+import { OccupiedEntry } from "./entry.ts";
 import { from, HashMap } from "./hashmap.ts";
 
 describe("HashMap", () => {

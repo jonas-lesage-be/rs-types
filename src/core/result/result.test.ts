@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { Option } from "@/core/mod.ts";
+import { Option } from "@/core/option/mod.ts";
 
 import { Err, Ok, Result } from "./result.ts";
 
