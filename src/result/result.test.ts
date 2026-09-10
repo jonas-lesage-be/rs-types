@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { Option } from "@/core/option/mod.ts";
+import { Option } from "@/option/mod.ts";
 
-import { Err, Ok, Result } from "./result.ts";
+import { Err, Ok, type Result } from "./result.ts";
 
 describe("Result", () => {
   describe("Basic logic and type guards", () => {

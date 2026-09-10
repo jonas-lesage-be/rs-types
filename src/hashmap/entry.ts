@@ -1,6 +1,6 @@
-import { Result } from "@/core/result/mod.ts";
+import { Result } from "@/result/mod.ts";
 
-import { HashMap } from "./hashmap.ts";
+import type { HashMap } from "./hashmap.ts";
 
 /**
  * A view into a single entry in a map, which may either be vacant or occupied.

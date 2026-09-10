@@ -1,4 +1,4 @@
-import { Option } from "@/core/option/mod.ts";
+import { Option } from "@/option/mod.ts";
 
 /**
  * `Result<T, E>` is the type used for returning and propagating errors.

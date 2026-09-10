@@ -1,4 +1,4 @@
-import { Option } from "@/core/option/mod.ts";
+import { Option } from "@/option/mod.ts";
 
 /**
  * A Hash Set implementation wrapping the native JavaScript Set,

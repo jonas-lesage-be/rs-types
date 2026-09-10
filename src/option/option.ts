@@ -1,4 +1,4 @@
-import { Result } from "@/core/result/mod.ts";
+import { Result } from "@/result/mod.ts";
 
 /**
  * The `Option` type represents an optional value:
