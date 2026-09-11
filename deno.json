@@ -1,6 +1,6 @@
 {
-  "name": "@jonas-lesage-be/rs-types",
-  "version": "0.5.1",
+  "name": "@jonas-lesage-be/typerust",
+  "version": "0.5.2",
   "description": "A library that provides Rust types in TypeScript.",
   "author": "Jonas Lesage <jonas.lesage@outlook.com>",
   "license": "MIT",

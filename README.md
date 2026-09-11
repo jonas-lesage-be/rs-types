@@ -1,4 +1,4 @@
-# rs-types
+# typerust
 
 A library that provides Rust types in TypeScript. This library contains TypeScript implementations of the following Rust types: `Result`, `Option`, `HashMap`, and `HashSet`.
 
@@ -6,9 +6,9 @@ A library that provides Rust types in TypeScript. This library contains TypeScri
 
 ```bash
 # deno
-deno add npm:rs-types
+deno add npm:typerust
 # npm
-npm install --save-dev rs-types
+npm install --save-dev typerust
 ```
 
 ## Usage
@@ -16,7 +16,7 @@ npm install --save-dev rs-types
 ### Result
 
 ```ts
-import { Result } from "rs-types";
+import { Result } from "typerust";
 
 const success = Result.Ok(42);
 const failure = Result.Err("something went wrong");
@@ -29,7 +29,7 @@ const fromPromise = Result.from(Promise.resolve(100));
 ### Option
 
 ```ts
-import { Option } from "rs-types";
+import { Option } from "typerust";
 
 const some = Option.Some(10);
 const none = Option.None;
@@ -42,7 +42,7 @@ const fromNullable = Option.from(null);
 ### HashMap
 
 ```ts
-import { HashMap } from "rs-types";
+import { HashMap } from "typerust";
 
 const map = HashMap.from({ key: "value" });
 const entry = map.get("key");
@@ -53,7 +53,7 @@ if (entry) console.log(entry.value);
 ### HashSet
 
 ```ts
-import { HashSet } from "rs-types";
+import { HashSet } from "typerust";
 
 const set = HashSet.from([1, 2, 3]);
 const exists = set.contains(2);

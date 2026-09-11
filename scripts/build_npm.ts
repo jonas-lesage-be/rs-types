@@ -20,7 +20,7 @@ await build({
     lib: ["ESNext", "DOM"],
   },
   package: {
-    name: "rs-types",
+    name: "typerust",
     version,
     description: "A library that provides Rust types in TypeScript.",
     license: "MIT",
