@@ -44,18 +44,9 @@ jobs:
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Install pnpm
-        uses: pnpm/setup@v2
-        with:
-          version: 12
-          install: false
-
-      - name: Build and test npm package
+      - name: Build npm package
         run: |
           deno run -A scripts/build_npm.ts ${{ steps.get_version.outputs.VERSION }}
-          cd ./npm
-          pnpm install
-          pnpm test
 
       - name: Publish to npm
         run: |

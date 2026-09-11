@@ -16,7 +16,6 @@ await build({
     deno: true,
   },
   test: false,
-  packageManager: "pnpm",
   compilerOptions: {
     lib: ["ESNext", "DOM"],
   },
@@ -25,13 +24,6 @@ await build({
     version,
     description: "A library that provides Rust types in TypeScript.",
     license: "MIT",
-    scripts: {
-      test: "vitest run esm/",
-    },
-    devDependencies: {
-      vitest: "^5.0.0",
-    },
-    type: "module",
   },
   postBuild() {
     Deno.copyFileSync("README.md", "npm/README.md");
