@@ -10,16 +10,28 @@ if (!version) {
 }
 
 await build({
-  entryPoints: ["./src/mod.ts"],
+  entryPoints: ["./mod.ts"],
   outDir: "./npm",
   shims: {
     deno: true,
+  },
+  test: false,
+  packageManager: "pnpm",
+  compilerOptions: {
+    lib: ["ESNext", "DOM"],
   },
   package: {
     name: "rs-types",
     version,
     description: "A library that provides Rust types in TypeScript.",
     license: "MIT",
+    scripts: {
+      test: "vitest run esm/",
+    },
+    devDependencies: {
+      vitest: "^5.0.0",
+    },
+    type: "module",
   },
   postBuild() {
     Deno.copyFileSync("README.md", "npm/README.md");
